@@ -7,6 +7,7 @@ import urllib.parse
 import requests
 import argparse
 import csv
+from datetime import date, timedelta
 
 import furl
 from dotenv import load_dotenv
@@ -29,10 +30,14 @@ def get_configuration():
                         default="-",
                         help="CSV output file; default is stdout",)
 
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+
     parser.add_argument('-f', '--from-date',
+                        default=yesterday,
                         help='from date (YYYY-MM-DD), inclusive; default is yesterday')
 
     parser.add_argument('-t', '--to-date',
+                        default=yesterday,
                         help='to date (YYYY-MM-DD), inclusive; default is yesterday')
 
     args = parser.parse_args()
@@ -147,7 +152,7 @@ if __name__ == '__main__':
     logger.info("Requesting Hours Data")
 
     request_headers = {'Authorization': 'Bearer ' + access_token}
-    response = requests.get(hours_url, headers=request_headers, params={'from': '2022-05-01', 'to': '2022-05-04'})
+    response = requests.get(hours_url, headers=request_headers, params={'from': args.from_date, 'to': args.to_date})
 
     logger.debug(response.text)
 
