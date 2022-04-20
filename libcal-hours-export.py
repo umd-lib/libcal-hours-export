@@ -82,7 +82,7 @@ def authenticate(logger, oath_url, client_id, client_secret):
 def write_csv(logger, hours_json):
     """ Write the CSV output. """
 
-    csvwriter.writerow(['id','name','date','status','minutes_open'])
+    csvwriter.writerow(['id','name','date','status', 'minutes_open', 'text', 'note'])
 
     # Iterate over locations
     for location in hours_json:
@@ -96,20 +96,24 @@ def write_csv(logger, hours_json):
 
                 status = hours['status']
 
+                text = hours['text'] if 'text' in hours else ''
+
+                note = hours['note'] if 'note' in hours else ''
+
                 if status == 'open':
                     # Iterate over hour ranges
                     if 'hours' in hours:
                         for range in hours['hours']:
-                            csvwriter.writerow([lid, name, date, status, 1])
+                            csvwriter.writerow([lid, name, date, status, 1, text, note])
 
                 elif status == 'text':
-                        csvwriter.writerow([lid, name, date, status, 2])
+                        csvwriter.writerow([lid, name, date, status, 2, text, note])
 
                 elif status == '24hours':
-                    csvwriter.writerow([lid, name, date, status, 1440])
+                    csvwriter.writerow([lid, name, date, status, 1440, text, note])
 
                 elif status == 'closed':
-                    csvwriter.writerow([lid, name, date, status, 0])
+                    csvwriter.writerow([lid, name, date, status, 0, text, note])
 
                 else:
                     logger.warn(f'Skipping unknown {status=} for {lid=}, {name=}, {date=}')
