@@ -7,7 +7,7 @@ import urllib.parse
 import requests
 import argparse
 import csv
-from datetime import date, timedelta
+import datetime as dt
 
 import furl
 from dotenv import load_dotenv
@@ -30,7 +30,7 @@ def get_configuration():
                         default="-",
                         help="CSV output file; default is stdout",)
 
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
 
     parser.add_argument('-f', '--from-date',
                         default=yesterday,
@@ -79,10 +79,34 @@ def authenticate(logger, oath_url, client_id, client_secret):
     return access_token
 
 
+def get_times(logger, date, open_time_str, close_time_str, text):
+
+    if open_time_str and close_time_str:
+
+        open_dt = dt.datetime.strptime(date + open_time_str, '%Y-%m-%d%I:%M%p')
+        close_dt = dt.datetime.strptime(date + close_time_str, '%Y-%m-%d%I:%M%p')
+        if close_time_str == "12:00AM":
+            close_dt += dt.timedelta(days=1)
+
+    elif text:
+
+        open_dt = dt.datetime.now()
+        close_dt = dt.datetime.now()
+
+    else:
+        raise RuntimeWarning("Unable to extract times")
+
+    minutes_open = int((close_dt - open_dt).total_seconds() / 60)
+
+    return open_dt.strftime('%I:%M%p'), close_dt.strftime('%I:%M%p'), minutes_open
+
+
 def write_csv(logger, hours_json):
     """ Write the CSV output. """
 
-    csvwriter.writerow(['id','name','date','status', 'minutes_open', 'text', 'note'])
+    csvwriter.writerow(['libcal_location_id', 'libcal_location_name', 'libcal_date',
+                        'libcal_status', 'libcal_from', 'libcal_to', 'open_time',
+                        'close_time', 'minutes_open', 'libcal_text', 'libcal_note'])
 
     # Iterate over locations
     for location in hours_json:
@@ -103,20 +127,34 @@ def write_csv(logger, hours_json):
                 if status == 'open':
                     # Iterate over hour ranges
                     if 'hours' in hours:
-                        for range in hours['hours']:
-                            csvwriter.writerow([lid, name, date, status, 1, text, note])
+                        for hrange in hours['hours']:
+                            try:
+                                open_time, close_time, minutes_open = get_times(logger, date, hrange['from'], hrange['to'], '')
+                            except Exception as e:
+                                logger.warning(f'{e=} {lid=} {name=} {date=}, {hrange["from"]=}, {hrange["to"]=}, {text=}')
+                                open_time, close_time, minutes_open = '', '', 0
+
+                            csvwriter.writerow([lid, name, date, status, hrange['from'], hrange['to'], open_time,
+                                                close_time, minutes_open, text, note])
 
                 elif status == 'text':
-                        csvwriter.writerow([lid, name, date, status, 2, text, note])
+                    try:
+                        open_time, close_time, minutes_open = get_times(logger, date, '', '', text)
+                    except Exception as e:
+                        logger.warning(f'{e=} {lid=} {name=} {date=}, {text=}')
+                        open_time, close_time, minutes_open = '', '', 0
+
+                    csvwriter.writerow([lid, name, date, status, '', '', open_time,
+                                        close_time, minutes_open, text, note])
 
                 elif status == '24hours':
-                    csvwriter.writerow([lid, name, date, status, 1440, text, note])
+                    csvwriter.writerow([lid, name, date, status, '', '', '', '', 1440, text, note])
 
                 elif status == 'closed':
-                    csvwriter.writerow([lid, name, date, status, 0, text, note])
+                    csvwriter.writerow([lid, name, date, status, '', '', '', '', 0, text, note])
 
                 else:
-                    logger.warn(f'Skipping unknown {status=} for {lid=}, {name=}, {date=}')
+                    logger.warning(f'Skipping unknown {status=} for {lid=}, {name=}, {date=}')
 
 
 if __name__ == '__main__':
