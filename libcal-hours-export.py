@@ -8,6 +8,7 @@ import requests
 import argparse
 import csv
 import datetime as dt
+import re
 
 import furl
 from dotenv import load_dotenv
@@ -79,19 +80,43 @@ def authenticate(logger, oath_url, client_id, client_secret):
     return access_token
 
 
+def get_text_time(time_str):
+    """ Extract the time from the freeform text field. """
+
+    hour = time_str[:-2]
+    minute = '00'
+    pm = time_str[-2:].lower() == 'pm'
+
+    if (i := hour.find(":")) > 0:
+        minute = hour[i + 1, i + 3]
+        hour = hour[0:i]
+
+    hour, minute = int(hour), int(minute)
+
+    if pm:
+        hour += 12
+
+    return dt.time(hour=hour, minute=minute)
+
+
 def get_times(logger, date, open_time_str, close_time_str, text):
+    """ Get computed open_time, close_time, and open_minutes. """
 
     if open_time_str and close_time_str:
-
+        # Get times directly from LibCal from and to values
         open_dt = dt.datetime.strptime(date + open_time_str, '%Y-%m-%d%I:%M%p')
         close_dt = dt.datetime.strptime(date + close_time_str, '%Y-%m-%d%I:%M%p')
         if close_time_str == "12:00AM":
             close_dt += dt.timedelta(days=1)
 
     elif text:
+        # Extract times from the text value
+        if (m := re.search(r'(\d{1,2}(?:\:\d{2})?(?:am|pm|AM|PM)) *[–-] *(\d{1,2}(?:\:\d{2})?(?:am|pm|AM|PM))', text)):
+            open_dt = dt.datetime.combine(dt.date.fromisoformat(date), get_text_time(m[1]))
+            close_dt = dt.datetime.combine(dt.date.fromisoformat(date), get_text_time(m[2]))
 
-        open_dt = dt.datetime.now()
-        close_dt = dt.datetime.now()
+        else:
+            raise RuntimeWarning("Unable to extract times from the text value")
 
     else:
         raise RuntimeWarning("Unable to extract times")
