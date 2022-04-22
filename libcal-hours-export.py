@@ -13,8 +13,8 @@ import re
 import furl
 from dotenv import load_dotenv
 
-# Get hours for a single day from LibCal Hours and write to CSV for loading
-# to the Data Warehouse.
+# Get hours for a date range from LibCal Hours using the API and write to CSV for loading
+# to a reporting database.
 
 # See https://umd.libcal.com/admin/api/1.1/endpoint/hours
 # and https://umd.libcal.com/admin/api/authentication
@@ -199,7 +199,7 @@ if __name__ == '__main__':
     # Setup logging
     logging.root.addHandler(logging.StreamHandler())
 
-    logger = logging.getLogger('website-searcher')
+    logger = logging.getLogger('libcal-hours-export')
 
     if debug:
         logger.setLevel(logging.DEBUG)
